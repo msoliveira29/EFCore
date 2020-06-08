@@ -1,9 +1,8 @@
 ﻿using EFCore.Domain.Entities;
-using EFCore.Infra.Data.Context;
+using EFCore.Infra.Data.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System;
-using System.Linq;
+using System.Threading.Tasks;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -22,7 +21,7 @@ namespace EFCore.WebAPI.Controllers
     {
         #region Attributes
 
-        private readonly HeroiContext _context;
+        private readonly IEFCoreRepository _repository;
 
         #endregion
 
@@ -36,9 +35,9 @@ namespace EFCore.WebAPI.Controllers
         /// </summary>
         /// <param name="context"></param>
         /// <remarks></remarks>
-        public BatalhaController(HeroiContext context)
+        public BatalhaController(IEFCoreRepository repository)
         {
-            _context = context;
+            _repository = repository;
         }
 
         #endregion
@@ -47,11 +46,12 @@ namespace EFCore.WebAPI.Controllers
 
         // GET: api/<BatalhaController>
         [HttpGet]
-        public ActionResult Get()
+        public async Task<IActionResult> Get()
         {
             try
             {
-                return Ok(new Batalha());
+                var batalhas = await _repository.GetAllBatalhas();
+                return Ok(batalhas);
             }
             catch (Exception ex)
             {
@@ -61,55 +61,88 @@ namespace EFCore.WebAPI.Controllers
 
         // GET api/<BatalhaController>/5
         [HttpGet("{id}")]
-        public ActionResult Get(int id)
+        public async Task<IActionResult> Get(int id)
         {
-            return Ok("value");
+            try
+            {
+                var batalha = await _repository.GetBatalhaById(id, false);
+                return Ok(batalha);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Erro; {ex}");
+            }
         }
 
         // POST api/<BatalhaController>
         [HttpPost]
-        public ActionResult Post(Batalha batalha)
+        public async Task<IActionResult> Post(Batalha model)
         {
             try
             {
-                _context.Batalhas.Add(batalha);
-                _context.SaveChanges();
+                _repository.Add(model);
 
-                return Ok("Bazinga");
+                if (await _repository.SaveChangeAsync())
+                {
+                    return Ok("Bazinga");
+                }
             }
             catch (Exception ex)
             {
                 return BadRequest($"Erro; {ex}");
             }
+
+            return BadRequest("Não salvou");
         }
 
         // PUT api/<BatalhaController>/5
         [HttpPut("{id}")]
-        public ActionResult Put(int id, Batalha batalha)
+        public async Task<IActionResult> Put(int id, Batalha model)
         {
             try
             {
-                if (_context.Batalhas.AsNoTracking()
-                                     .FirstOrDefault(h => h.Id == id) != null)
+                var batalha = await _repository.GetBatalhaById(id, false);
+                if (batalha != null)
                 {
-                    _context.Batalhas.Update(batalha);
-                    _context.SaveChanges();
+                    _repository.Update(model);
 
-                    return Ok("Bazinga");
+                    if (await _repository.SaveChangeAsync())
+                    {
+                        return Ok("Bazinga");
+                    }
                 }
-
-                return Ok("Não encontrado");
             }
             catch (Exception ex)
             {
-                return BadRequest($"Erro; {ex}");
+                return BadRequest($"Erro {ex}");
             }
+
+            return BadRequest("Não atualizado.");
         }
 
         // DELETE api/<BatalhaController>/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
+            try
+            {
+                var batalha = await _repository.GetBatalhaById(id, false);
+                if (batalha != null)
+                {
+                    _repository.Delete(batalha);
+
+                    if (await _repository.SaveChangeAsync())
+                    {
+                        return Ok("Bazinga");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Erro {ex}");
+            }
+
+            return BadRequest("Não deletado.");
         }
 
         #endregion
